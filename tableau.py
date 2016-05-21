@@ -8,22 +8,23 @@ publish data extract to server
 import os
 import pandas as pd
 
-from tableausdk import *
-from tableausdk.Server import *
-from tableausdk.Extract import *
+from tableausdk.Types import Type, Result
+from tableausdk.Server import ServerAPI, ServerConnection
+from tableausdk.Extract import TableDefinition, Row, Extract, ExtractAPI
+from tableausdk.Exceptions import TableauException	
 
-def to_tde(df, extractname, tablename, data_type, index = False, new_extract = False, append = True) :
+def to_tde(df, extractname, data_type, index = False, new_extract = False, append = True):
     '''
     change pandas dataframe to tableau data extract
     '''
     table_definition_map = { 
-                            'Bool' :    Type.BOOLEAN,
-                            'Integer':  Type.INTEGER,
-                            'Double':   Type.DOUBLE,
-                            'Date':     Type.DATE,
-                            'DateTime': Type.DATETIME,
-                            'Unicode':  Type.UNICODE_STRING,
-                            'Char':     Type.CHAR_STRING
+                            'bool' :    Type.BOOLEAN,
+                            'integer':  Type.INTEGER,
+                            'double':   Type.DOUBLE,
+                            'date':     Type.DATE,
+                            'datetime': Type.DATETIME,
+                            'unicode':  Type.UNICODE_STRING,
+                            'char':     Type.CHAR_STRING
                             }
     value_set_map = {
                   Type.BOOLEAN:        lambda row, col_num, value: row.setBoolean( col_num, bool(value) ),
@@ -31,7 +32,7 @@ def to_tde(df, extractname, tablename, data_type, index = False, new_extract = F
                   Type.DOUBLE:         lambda row, col_num, value: row.setDouble( col_num, float(value) ),
                   Type.UNICODE_STRING: lambda row, col_num, value: row.setString( col_num, unicode(value) ),
                   Type.CHAR_STRING:    lambda row, col_num, value: row.setCharString( col_num, value ),
-                  Type.DATE:           lambda row, col_num, value: row.setDate(col, value.year, value.month, value.day),
+                  Type.DATE:           lambda row, col_num, value: row.setDate(col_num, value.year, value.month, value.day),
                   Type.DATETIME:       lambda row, col_num, value: row.setDateTime( col_num,  value.year,  value.month,  value.day,
                                                                                   value.hour,  value.minute,  value.second,
                                                                                   value.microsecond/100 )
@@ -45,30 +46,32 @@ def to_tde(df, extractname, tablename, data_type, index = False, new_extract = F
     if extractname[-4:] != '.tde':
         extractname += '.tde'    
     
-    if new_extract & (extractname in os.listdir()):
+    if new_extract & (extractname in os.listdir('.')):
             os.remove(extractname)
     extract_to_save = Extract(extractname)
             
-    if extract_to_save.hasTable(tablename) & append:
-        table_to_save = extract_to_save.openTable(tablename)
+    if extract_to_save.hasTable("Extract") & append:
+        table_to_save = extract_to_save.openTable("Extract")
         table_definition = table_to_save.getTableDefinition()
     else:
         table_definition = TableDefinition()
         for colname in df_new.columns:
-            type_code = table_definition_map[data_type.get(colname, 'Unicode')]
+            type_code = table_definition_map[data_type.get(colname, 'unicode').lower()]
             table_definition.addColumn(colname, type_code)
-        table_to_save = extract_to_save(tablename, table_definition)
+        table_to_save = extract_to_save.addTable("Extract", table_definition) # currnetly table cannot be Extract!!!
     
-    for df_row in df_new.iterrows():
+    for df_row_tuple in df_new.iterrows():
         new_row = Row(table_definition)
+        # new_rwo is a tuple of len 2, index and the row as series
+        df_row = df_row_tuple[1]
         for col_num, (col_val, null_col) in enumerate(zip(df_row, df_row.isnull())):
             if null_col:
-                new_row.set(col_num)
+                new_row.setNull(col_num)
             else:
                 value_set_map[table_definition.getColumnType(col_num)](new_row, col_num, col_val)
         table_to_save.insert(new_row)
     
-    extract_to_save_close()
+    extract_to_save.close()
     ExtractAPI.cleanup()
                                        
     
@@ -88,7 +91,7 @@ def publish_tde(server, username, password, siteID, extractname, project, publis
         serverConnection.connect(server, username, password, siteID)
     
         # Publish order-py.tde to the server under the default project with name Order-py
-        serverConnection.publishExtract(extractName, project, publishname, overwrite)
+        serverConnection.publishExtract(extractname, project, publishname, overwrite)
     
         # Disconnect from the server
         serverConnection.disconnect()

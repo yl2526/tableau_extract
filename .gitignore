@@ -1,3 +1,5 @@
 *.pyc
+*.csv
+*.tde
+*.log
 test.py
-TableauSDKServer.log
