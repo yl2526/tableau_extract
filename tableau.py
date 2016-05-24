@@ -75,7 +75,7 @@ def to_tde(df, extractname, data_type, index = False, new_extract = False, appen
     ExtractAPI.cleanup()
                                        
     
-def publish_tde(host, username, password, siteID, extractname, project, publishname, overwrite = True) :
+def publish_tde(host, username, password, siteID, extractpath, project, publishname, overwrite = True) :
     '''
     publish tde to server
     basically some changes to the sample code form tableau
@@ -91,7 +91,7 @@ def publish_tde(host, username, password, siteID, extractname, project, publishn
         serverConnection.connect(host, username, password, siteID)
     
         # Publish order-py.tde to the server under the default project with name Order-py
-        serverConnection.publishExtract(extractname, project, publishname, overwrite)
+        serverConnection.publishExtract(extractpath, project, publishname, overwrite)
     
         # Disconnect from the server
         serverConnection.disconnect()
